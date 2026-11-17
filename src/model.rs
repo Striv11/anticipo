@@ -53,6 +53,13 @@ pub struct Step {
     pub surprise: f32,
     /// Whether the arg-max prediction matched the symbol.
     pub correct: bool,
+    /// L2 norm of the output-layer error `onehot(actual) - prediction`
+    /// before any relaxation (how wrong the feed-forward guess was).
+    pub output_error: f32,
+    /// L2 norm of the hidden-layer error `x1 - mu1` after relaxation (how far
+    /// the hidden state had to move from its top-down prediction to explain
+    /// the observation).
+    pub hidden_error: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -152,6 +159,13 @@ impl Model {
         // Inference: relax hidden activity with the output clamped to truth.
         let mut x1 = mu1.clone();
         let mut e0 = vec![0.0; vocab];
+        let output_error = (0..vocab)
+            .map(|o| {
+                let e = if o == symbol { 1.0 } else { 0.0 } - prediction[o];
+                e * e
+            })
+            .sum::<f32>()
+            .sqrt();
         for _ in 0..self.cfg.infer_steps {
             let p = softmax(&self.output_logits(&x1));
             for o in 0..vocab {
@@ -181,12 +195,19 @@ impl Model {
             }
         }
 
+        let hidden_error = (0..hd)
+            .map(|h| (x1[h] - mu1[h]).powi(2))
+            .sum::<f32>()
+            .sqrt();
+
         self.history.remove(0);
         self.history.push(symbol);
         Step {
             prediction,
             surprise,
             correct,
+            output_error,
+            hidden_error,
         }
     }
 

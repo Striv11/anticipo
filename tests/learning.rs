@@ -65,3 +65,26 @@ fn predictions_are_distributions_and_deterministic() {
 fn rejects_out_of_range_symbol() {
     Model::new(Config::new(3, 1)).observe(3);
 }
+
+#[test]
+fn layer_errors_are_exposed_and_shrink_with_learning() {
+    let seq = [0, 1, 2, 3, 0, 1, 2, 3];
+    let mut m = Model::new(Config::new(4, 1));
+    let first = m.observe(seq[0]);
+    assert!(first.output_error > 0.0 && first.output_error <= 2f32.sqrt());
+    assert!(first.hidden_error.is_finite());
+    let mut early = 0.0;
+    let mut late = 0.0;
+    for r in 0..80 {
+        for &s in &seq {
+            let st = m.observe(s);
+            if r == 0 {
+                early += st.output_error;
+            }
+            if r == 79 {
+                late += st.output_error;
+            }
+        }
+    }
+    assert!(late < early * 0.2, "early {early} late {late}");
+}
