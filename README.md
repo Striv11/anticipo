@@ -27,6 +27,9 @@ Predictive coding says cortex continually predicts its input and learns from the
 ```
 - `src/model.rs`: the network. `predict()` is a pure feed-forward guess; `observe(sym)` scores that guess (surprise = -ln p), relaxes the hidden layer with the truth clamped, applies local updates `dW0 = lr*e0*tanh(x1)^T`, `dW1 = lr*e1*x2^T`, and slides the window.
 - `src/rng.rs`: dependency-free deterministic xorshift RNG; the same seed gives identical runs.
+- `src/tokenizer.rs`: `CharTokenizer` (text) and `MelodyTokenizer` (note names like `F#3`), both round-trip tested.
+- `src/baseline.rs`: online order-k Markov model with additive smoothing, the reference for benchmarks. `Step` also reports `output_error` and `hidden_error` norms per observation.
+- Benchmark (`cargo test --test benchmark -- --nocapture`): on a first-order Markov source the PC model reaches ~1.13 bits/symbol vs 1.11 for the baseline (6000 symbols); at 30000 symbols the gap widens to ~7%, since constant-rate learning keeps fluctuating.
 - Invariants: predictions always form a probability distribution; output is deterministic per seed and input.
 
 ## Setup
@@ -46,7 +49,7 @@ _Planned._ Day 1 ships the core library only. The target two-minute demo: open t
 
 ## Roadmap
 - [x] Day 1: core predictive-coding model, tests, CI
-- [ ] Day 2: layer-error exposure, tokenizers, Markov baseline
+- [x] Day 2: layer-error exposure, tokenizers, Markov baseline
 - [ ] Day 3: WASM bindings and minimal web UI
 - [ ] Day 4: melody mode with audio
 - [ ] Day 5: hierarchy visualization and controls

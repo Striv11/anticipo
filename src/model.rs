@@ -180,12 +180,17 @@ impl Model {
         }
 
         // Learning: local, error-driven updates at the settled state.
-        let p = softmax(&self.output_logits(&x1));
+        // The output weights learn from the error of the *prediction* (made
+        // from the top-down state), not the settled error: once x1 has been
+        // pulled toward the truth the residual output error shrinks, which on
+        // noisy sequences makes the model drift toward overconfidence. The
+        // presynaptic activity is the mean of the settled and top-down states,
+        // which keeps learning fast on deterministic sequences.
         let lr = self.cfg.learning_rate;
         for o in 0..vocab {
-            let e = if o == symbol { 1.0 } else { 0.0 } - p[o];
+            let e = if o == symbol { 1.0 } else { 0.0 } - prediction[o];
             for h in 0..hd {
-                self.w0[o * hd + h] += lr * e * x1[h].tanh();
+                self.w0[o * hd + h] += lr * e * (0.5 * (x1[h].tanh() + mu1[h].tanh()));
             }
         }
         for h in 0..hd {
