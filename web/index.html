@@ -1,7 +1,65 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>anticipo</title></head>
-<body style="font-family:system-ui;max-width:40rem;margin:3rem auto;padding:0 1rem">
+<title>anticipo</title>
+<style>
+  body{font-family:system-ui;max-width:42rem;margin:2rem auto;padding:0 1rem;line-height:1.4}
+  textarea{width:100%;box-sizing:border-box;font:inherit;font-size:1.1rem;padding:.5rem}
+  .bar{display:flex;align-items:center;gap:.5rem;margin:.2rem 0}
+  .bar span.k{width:2.5rem;font-family:monospace}
+  .bar div{background:#4a7;height:1rem;min-width:1px}
+  #status{color:#555} #error{color:#b00}
+  button{font:inherit;padding:.3rem .8rem}
+</style></head>
+<body>
 <h1>anticipo</h1>
-<p>A brain-inspired model that learns melodies and text patterns online, and shows you its predictions and surprise. The interactive demo is under construction (see PLAN.md, day 3).</p>
+<p>A brain-inspired model that learns online from its own prediction errors. Type below: it learns each character as you type and shows what it expects next.</p>
+<label for="t">Type (try repeating a phrase several times)</label>
+<textarea id="t" rows="4" disabled aria-describedby="status"></textarea>
+<p><button id="reset" disabled>Reset model</button>
+<span id="status">Loading…</span></p>
+<p id="error" role="alert"></p>
+<h2>Next character</h2>
+<div id="bars" aria-live="polite"></div>
+<script type="module">
+import { load } from "./anticipo.js";
+const $ = (id) => document.getElementById(id);
+const label = (i) => (i === 32 ? "␣" : i === 10 ? "⏎" : i < 32 || i === 127 ? "·" : String.fromCharCode(i));
+try {
+  const m = await load();
+  m.init({ window: 3, hidden: 24, learningRate: 0.1, seed: 1 });
+  let seen = "";
+  const render = (surprise) => {
+    const p = m.predict();
+    const top = [...p.keys()].sort((a, b) => p[b] - p[a]).slice(0, 8);
+    $("bars").replaceChildren(...top.map((i) => {
+      const row = document.createElement("div"); row.className = "bar";
+      row.innerHTML = '<span class="k"></span><div></div><span></span>';
+      row.children[0].textContent = label(i);
+      row.children[1].style.width = (p[i] * 100).toFixed(1) + "%";
+      row.children[2].textContent = (p[i] * 100).toFixed(1) + "%";
+      return row;
+    }));
+    $("status").textContent = surprise == null ? "Ready." :
+      `Last input surprise: ${(surprise / Math.LN2).toFixed(2)} bits/char`;
+  };
+  $("t").addEventListener("input", (e) => {
+    const v = e.target.value;
+    // Learn only the appended characters; edits elsewhere reset the context.
+    let s = null;
+    if (v.startsWith(seen)) { s = m.observe(v.slice(seen.length)); }
+    else { m.resetContext(); s = m.observe(v); }
+    seen = v;
+    render(v.length ? s : null);
+  });
+  $("reset").addEventListener("click", () => {
+    m.reset(); seen = ""; $("t").value = ""; render(null);
+  });
+  $("t").disabled = false; $("reset").disabled = false;
+  render(null);
+} catch (err) {
+  $("status").textContent = "";
+  $("error").textContent = "Could not load the model: " + err.message +
+    " (run scripts/build-web.sh and serve the web/ folder over HTTP).";
+}
+</script>
 </body></html>
