@@ -8,7 +8,9 @@
 pub mod baseline;
 pub mod model;
 pub mod rng;
+pub mod session;
 pub mod tokenizer;
+pub mod wasm;
 
 pub use baseline::MarkovBaseline;
 pub use model::{Config, Model, Step};
