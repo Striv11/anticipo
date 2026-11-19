@@ -3,6 +3,7 @@
 //! C-ABI shell around it.
 
 use crate::model::{Config, Model, Step};
+use crate::tokenizer::MelodyTokenizer;
 
 /// ASCII vocabulary size. Non-ASCII input is mapped to `?`.
 pub const VOCAB: usize = 128;
@@ -22,7 +23,18 @@ pub struct Session {
 
 impl Session {
     pub fn new(window: usize, hidden: usize, learning_rate: f32, seed: u64) -> Self {
-        let mut cfg = Config::new(VOCAB, window.max(1));
+        Self::with_vocab(VOCAB, window, hidden, learning_rate, seed)
+    }
+
+    /// Melody session: symbols are pitch ids `0..MelodyTokenizer::VOCAB`
+    /// (C0 = 0, MIDI note = id + 12).
+    pub fn melody(window: usize, hidden: usize, learning_rate: f32, seed: u64) -> Self {
+        Self::with_vocab(MelodyTokenizer::VOCAB, window, hidden, learning_rate, seed)
+    }
+
+    fn with_vocab(vocab: usize, window: usize, hidden: usize, lr: f32, seed: u64) -> Self {
+        let learning_rate = lr;
+        let mut cfg = Config::new(vocab, window.max(1));
         cfg.hidden = hidden.max(1);
         cfg.learning_rate = learning_rate;
         cfg.seed = seed;
@@ -44,6 +56,30 @@ impl Session {
     /// Feed a whole string; returns the surprise (nats) of each byte.
     pub fn observe_all(&mut self, bytes: &[u8]) -> Vec<f32> {
         bytes.iter().map(|&b| self.observe(b).surprise).collect()
+    }
+
+    /// Size of the symbol alphabet (length of [`Session::predict`]).
+    pub fn vocab(&self) -> usize {
+        self.model.config().vocab
+    }
+
+    /// Learn from one symbol id; `None` if it is outside the alphabet.
+    pub fn observe_symbol(&mut self, symbol: usize) -> Option<Step> {
+        (symbol < self.vocab()).then(|| self.model.observe(symbol))
+    }
+
+    /// The model's imagined continuation: `n` greedy (most likely) symbols.
+    /// Runs on a copy, so the real model's weights and context are untouched.
+    pub fn continuation(&self, n: usize) -> Vec<usize> {
+        let mut sim = self.model.clone();
+        (0..n)
+            .map(|_| {
+                let p = sim.predict();
+                let best = (0..p.len()).fold(0, |b, i| if p[i] > p[b] { i } else { b });
+                sim.observe(best);
+                best
+            })
+            .collect()
     }
 
     pub fn reset_context(&mut self) {

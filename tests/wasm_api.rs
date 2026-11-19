@@ -70,3 +70,39 @@ fn uninitialised_calls_are_safe() {
     .join()
     .unwrap();
 }
+
+#[test]
+fn melody_session_learns_and_imagines_continuation() {
+    use anticipo::MelodyTokenizer;
+    let tune = MelodyTokenizer::encode("C4 E4 G4 E4 D4 F4 A4 F4").unwrap();
+    let mut s = Session::melody(2, 24, 0.1, 3);
+    assert_eq!(s.vocab(), MelodyTokenizer::VOCAB);
+    for _ in 0..60 {
+        for &n in &tune {
+            s.observe_symbol(n).unwrap();
+        }
+    }
+    assert!(s.observe_symbol(MelodyTokenizer::VOCAB).is_none());
+    // After a full pass the context is the end of the tune; the model should
+    // imagine the tune starting over.
+    let before = s.predict();
+    let cont = s.continuation(8);
+    assert_eq!(cont, tune);
+    // Imagining must not change the real model.
+    assert_eq!(before, s.predict());
+}
+
+#[test]
+fn ffi_melody_mode() {
+    anticipo_init_melody(2, 24, 0.1, 5);
+    assert_eq!(anticipo_vocab(), 108);
+    assert!(probs().len() == 108);
+    assert!(anticipo_observe_symbol(60 - 12) >= 0.0);
+    assert_eq!(anticipo_observe_symbol(108), -1.0);
+    assert!(anticipo_continue(0).is_null());
+    assert!(anticipo_continue(257).is_null());
+    let p = anticipo_continue(4);
+    assert!(!p.is_null());
+    let notes = unsafe { std::slice::from_raw_parts(p, 4) };
+    assert!(notes.iter().all(|&n| n < 108));
+}

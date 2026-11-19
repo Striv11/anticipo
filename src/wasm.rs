@@ -5,13 +5,14 @@
 //! State lives in a thread-local session (WASM is single-threaded). Buffers
 //! returned by pointer stay valid until the next call that writes them.
 
-use crate::session::{Session, VOCAB};
+use crate::session::Session;
 use std::cell::RefCell;
 
 struct State {
     session: Session,
     probs: Vec<f32>,
     input: Vec<u8>,
+    notes: Vec<u32>,
 }
 
 thread_local! {
@@ -28,20 +29,74 @@ fn with_state<R>(default: R, f: impl FnOnce(&mut State) -> R) -> R {
 /// Create (or replace) the session. Must be called first.
 #[no_mangle]
 pub extern "C" fn anticipo_init(window: u32, hidden: u32, learning_rate: f32, seed: u32) {
-    let session = Session::new(window as usize, hidden as usize, learning_rate, seed as u64);
+    install(Session::new(
+        window as usize,
+        hidden as usize,
+        learning_rate,
+        seed as u64,
+    ));
+}
+
+/// Like `anticipo_init`, but a melody session: symbols are pitch ids
+/// (`C0 = 0`; MIDI note number = id + 12), vocabulary 108.
+#[no_mangle]
+pub extern "C" fn anticipo_init_melody(window: u32, hidden: u32, learning_rate: f32, seed: u32) {
+    install(Session::melody(
+        window as usize,
+        hidden as usize,
+        learning_rate,
+        seed as u64,
+    ));
+}
+
+fn install(session: Session) {
     STATE.with(|s| {
         *s.borrow_mut() = Some(State {
             probs: session.predict(),
             session,
             input: Vec::new(),
+            notes: Vec::new(),
         })
     });
+}
+
+/// Observe one symbol id (any mode); returns its surprise in nats, or -1 if
+/// uninitialised or the id is outside the alphabet.
+#[no_mangle]
+pub extern "C" fn anticipo_observe_symbol(symbol: u32) -> f32 {
+    with_state(-1.0, |st| {
+        match st.session.observe_symbol(symbol as usize) {
+            Some(step) => {
+                st.probs = st.session.predict();
+                step.surprise
+            }
+            None => -1.0,
+        }
+    })
+}
+
+/// Imagine the next `n` symbols (greedy; the model is not changed). Returns
+/// a pointer to `n` u32 ids, or null if uninitialised or `n` is 0 or > 256.
+#[no_mangle]
+pub extern "C" fn anticipo_continue(n: u32) -> *const u32 {
+    with_state(std::ptr::null(), |st| {
+        if n == 0 || n > 256 {
+            return std::ptr::null();
+        }
+        st.notes = st
+            .session
+            .continuation(n as usize)
+            .into_iter()
+            .map(|v| v as u32)
+            .collect();
+        st.notes.as_ptr()
+    })
 }
 
 /// Alphabet size (length of the probability buffer).
 #[no_mangle]
 pub extern "C" fn anticipo_vocab() -> u32 {
-    VOCAB as u32
+    with_state(crate::session::VOCAB as u32, |st| st.session.vocab() as u32)
 }
 
 /// Observe one ASCII byte; returns its surprise in nats (-1 if uninitialised).
