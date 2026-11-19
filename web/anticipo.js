@@ -9,6 +9,19 @@ export async function load(url = "pkg/anticipo.wasm") {
       const { window = 3, hidden = 24, learningRate = 0.1, seed = 1 } = opts;
       x.anticipo_init(window, hidden, learningRate, seed);
     },
+    /** Melody mode: symbols are pitch ids (C0 = 0, MIDI = id + 12). */
+    initMelody(opts = {}) {
+      const { window = 3, hidden = 32, learningRate = 0.1, seed = 1 } = opts;
+      x.anticipo_init_melody(window, hidden, learningRate, seed);
+    },
+    /** Learn one symbol id; returns surprise in nats (-1 if invalid). */
+    observeSymbol: (id) => x.anticipo_observe_symbol(id),
+    /** The model's imagined next `n` symbol ids (model unchanged). */
+    continuation(n) {
+      const p = x.anticipo_continue(n);
+      if (!p) return [];
+      return Array.from(new Uint32Array(x.memory.buffer, p, n));
+    },
     vocab: () => x.anticipo_vocab(),
     /** Next-symbol probabilities as a copied Float32Array. */
     predict() {

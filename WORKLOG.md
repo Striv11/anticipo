@@ -24,3 +24,10 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests (`tests/wasm_api.rs`) call the FFI natively: learning a phrase, distribution validity, reset, bounds-checked buffer, uninitialised calls. Also smoke-tested the real .wasm in Node (p('a') = 0.99 after `abc` x40).
 - Learned: exports are plain `extern "C"` functions, so clippy and tests cover them natively without a wasm runner. Not verified: the page in a real browser (no browser here); Pages deployment only happens on push.
 - Next (day 4): melody mode, piano roll, Web Audio playback, surprise trace chart.
+
+## 2026-11-19 (day 4)
+- `Session::melody` (108 pitch ids, C0 = 0), `observe_symbol` and `continuation(n)`: a greedy rollout on a *clone* of the model, so imagining never alters weights or context. FFI gained `anticipo_init_melody`, `anticipo_observe_symbol`, `anticipo_continue`; `anticipo_vocab` now reports the active session's size.
+- Tests: a melody session learns an 8-note tune and its continuation reproduces the tune exactly, with predictions unchanged afterwards; FFI bounds (invalid id, n = 0, n > 256). Also ran the real .wasm in Node: same continuation.
+- `web/melody.html`: clickable/touch/computer-key piano, expected-note highlight, surprise trace canvas, Web Audio playback, shortcuts documented in-page, link from the text page.
+- Not verified: the page in a real browser (no browser or audio device here), so layout and audio timing are untested. The Playwright day-7 work should cover it.
+- Next (day 5): hierarchy visualization (hidden/error units), model controls, presets.
