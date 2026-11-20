@@ -9,11 +9,24 @@
   .bar div{background:#4a7;height:1rem;min-width:1px}
   #status{color:#555} #error{color:#b00}
   button{font:inherit;padding:.3rem .8rem}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;margin:1rem 0}
+  .controls label{display:flex;flex-direction:column;font-size:.9rem}
+  #units{display:grid;grid-template-columns:repeat(auto-fill,minmax(1.4rem,1fr));gap:2px}
+  #units i,#errs i{display:block;height:1.4rem;border-radius:2px;background:#ddd}
+  #errs{display:grid;grid-template-columns:repeat(auto-fill,minmax(1.4rem,1fr));gap:2px}
+  .legend{font-size:.85rem;color:#555}
 </style></head>
 <body>
 <h1>anticipo</h1>
 <p><a href="melody.html">Melody mode →</a></p>
 <p>A brain-inspired model that learns online from its own prediction errors. Type below: it learns each character as you type and shows what it expects next.</p>
+<p>Presets: <span id="presets"></span></p>
+<div class="controls">
+  <label>Window: <output id="ow"></output><input id="cw" type="range" min="1" max="6" value="3"></label>
+  <label>Hidden units: <output id="oh"></output><input id="ch" type="range" min="4" max="64" step="4" value="24"></label>
+  <label>Learning rate: <output id="ol"></output><input id="cl" type="range" min="0.01" max="0.4" step="0.01" value="0.1"></label>
+</div>
+<p class="legend">Changing a control rebuilds the model (it forgets what it learned) and replays the current text.</p>
 <label for="t">Type (try repeating a phrase several times)</label>
 <textarea id="t" rows="4" disabled aria-describedby="status"></textarea>
 <p><button id="reset" disabled>Reset model</button>
@@ -21,14 +34,37 @@
 <p id="error" role="alert"></p>
 <h2>Next character</h2>
 <div id="bars" aria-live="polite"></div>
+<h2>Hidden layer</h2>
+<p class="legend">Activity of each hidden unit after the last character (blue = positive, orange = negative).</p>
+<div id="units" aria-label="hidden activity"></div>
+<p class="legend">Prediction error per hidden unit: how far it had to move to explain the character (darker = larger). Total: <output id="etot">0</output></p>
+<div id="errs" aria-label="hidden errors"></div>
 <script type="module">
 import { load } from "./anticipo.js";
 const $ = (id) => document.getElementById(id);
 const label = (i) => (i === 32 ? "␣" : i === 10 ? "⏎" : i < 32 || i === 127 ? "·" : String.fromCharCode(i));
 try {
   const m = await load();
-  m.init({ window: 3, hidden: 24, learningRate: 0.1, seed: 1 });
+  const PRESETS = {
+    "Scale": "abcdefgabcdefgabcdefgabcdefgabcdefg",
+    "Nursery rhyme": "twinkle twinkle little star how i wonder what you are twinkle twinkle little star how i wonder what you are ",
+    "English text": "the quick brown fox jumps over the lazy dog. the dog barks and the fox runs away. the fox is quick and the dog is lazy. ",
+  };
+  const params = () => ({ window: +$("cw").value, hidden: +$("ch").value, learningRate: +$("cl").value, seed: 1 });
+  const showParams = () => { $("ow").textContent = $("cw").value; $("oh").textContent = $("ch").value; $("ol").textContent = $("cl").value; };
   let seen = "";
+  const color = (v) => v >= 0 ? `rgba(40,110,200,${Math.min(1, Math.abs(v))})` : `rgba(230,120,20,${Math.min(1, Math.abs(v))})`;
+  const paint = (el, vals, f) => {
+    if (el.children.length !== vals.length) el.replaceChildren(...Array.from(vals, () => document.createElement("i")));
+    vals.forEach((v, i) => { el.children[i].style.background = f(v); el.children[i].title = v.toFixed(3); });
+  };
+  const renderLayers = () => {
+    const { activity, errors } = m.layers();
+    paint($("units"), activity, color);
+    paint($("errs"), errors, (v) => `rgba(160,30,30,${Math.min(1, Math.abs(v) * 2)})`);
+    $("etot").textContent = Math.hypot(...errors).toFixed(3);
+  };
+  const rebuild = () => { m.init(params()); m.resetContext(); const t = $("t").value; seen = ""; if (t) { m.observe(t); seen = t; } };
   const render = (surprise) => {
     const p = m.predict();
     const top = [...p.keys()].sort((a, b) => p[b] - p[a]).slice(0, 8);
@@ -40,6 +76,7 @@ try {
       row.children[2].textContent = (p[i] * 100).toFixed(1) + "%";
       return row;
     }));
+    renderLayers();
     $("status").textContent = surprise == null ? "Ready." :
       `Last input surprise: ${(surprise / Math.LN2).toFixed(2)} bits/char`;
   };
@@ -55,7 +92,15 @@ try {
   $("reset").addEventListener("click", () => {
     m.reset(); seen = ""; $("t").value = ""; render(null);
   });
+  showParams();
+  for (const id of ["cw", "ch", "cl"]) $(id).addEventListener("input", () => { showParams(); rebuild(); render(seen ? 0 : null); });
+  for (const [name, text] of Object.entries(PRESETS)) {
+    const b = document.createElement("button"); b.textContent = name;
+    b.addEventListener("click", () => { m.reset(); $("t").value = text; seen = ""; m.resetContext(); const s = m.observe(text); seen = text; render(s); });
+    $("presets").append(b, " ");
+  }
   $("t").disabled = false; $("reset").disabled = false;
+  rebuild();
   render(null);
 } catch (err) {
   $("status").textContent = "";

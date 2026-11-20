@@ -31,3 +31,9 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - `web/melody.html`: clickable/touch/computer-key piano, expected-note highlight, surprise trace canvas, Web Audio playback, shortcuts documented in-page, link from the text page.
 - Not verified: the page in a real browser (no browser or audio device here), so layout and audio timing are untested. The Playwright day-7 work should cover it.
 - Next (day 5): hierarchy visualization (hidden/error units), model controls, presets.
+
+## 2026-11-20 (day 5)
+- `Step` now carries `hidden_activity` (tanh of settled x1) and `hidden_errors` (x1 - mu1 per unit); `Session` remembers the last step; FFI gained `anticipo_hidden` and `anticipo_layers` (activity then errors in one f32 buffer), wrapped as `m.layers()` in JS.
+- Text page: window/hidden/learning-rate sliders (rebuild + replay text), three presets, and activity/error grids. Test checks layer buffer shape, bounds, zeros before input/after reset, and that a surprising symbol raises total hidden error. Node smoke-test of the built .wasm reads the buffer correctly (48 KB).
+- Not verified: the page in a real browser (still none available); the melody page was left as is.
+- Next (day 6): responsive layout at 375/1280, light/dark, localStorage save/load, screenshots.

@@ -46,7 +46,7 @@ Build and serve locally:
 bash scripts/build-web.sh     # writes web/pkg/anticipo.wasm
 python3 -m http.server -d web 8000   # open http://localhost:8000
 ```
-Type text in the box; bars show the model's top-8 next-character probabilities and the surprise of your last input. Try typing `abcabcabc...` and watch `a` dominate. The Pages workflow builds the same bundle. Melody mode (`web/melody.html`): click, tap or type on a piano keyboard (shortcuts are listed on the page); the green key is the model's expected next note, a trace shows surprise per note, and *Imagine* plays its greedy continuation through Web Audio. The longer target two-minute demo: open the page, pick the "nursery rhyme" preset, watch surprise drop to near zero after a few repeats, then type a deviation and see the spike.
+Sliders for window, hidden size and learning rate rebuild the model; presets (scale, nursery rhyme, English text) load sample text; two grids show hidden-unit activity and per-unit prediction error after each character. Type text in the box; bars show the model's top-8 next-character probabilities and the surprise of your last input. Try typing `abcabcabc...` and watch `a` dominate. The Pages workflow builds the same bundle. Melody mode (`web/melody.html`): click, tap or type on a piano keyboard (shortcuts are listed on the page); the green key is the model's expected next note, a trace shows surprise per note, and *Imagine* plays its greedy continuation through Web Audio. The longer target two-minute demo: open the page, pick the "nursery rhyme" preset, watch surprise drop to near zero after a few repeats, then type a deviation and see the spike.
 
 ## Design decisions & trade-offs
 - Dependency-free core: small WASM size and fully reproducible runs, at the cost of hand-written linear algebra (fine at these sizes).
@@ -58,7 +58,7 @@ Type text in the box; bars show the model's top-8 next-character probabilities a
 - [x] Day 2: layer-error exposure, tokenizers, Markov baseline
 - [x] Day 3: WASM bindings and minimal web UI
 - [x] Day 4: melody mode with audio
-- [ ] Day 5: hierarchy visualization and controls
+- [x] Day 5: hierarchy visualization and controls
 - [ ] Day 6: polish, responsive design, screenshots
 - [ ] Day 7: Playwright e2e and performance budgets
 
