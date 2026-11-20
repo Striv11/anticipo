@@ -106,3 +106,25 @@ fn ffi_melody_mode() {
     let notes = unsafe { std::slice::from_raw_parts(p, 4) };
     assert!(notes.iter().all(|&n| n < 108));
 }
+
+#[test]
+fn ffi_exposes_hidden_layers() {
+    anticipo_init(3, 10, 0.1, 1);
+    assert_eq!(anticipo_hidden(), 10);
+    let read = || unsafe { std::slice::from_raw_parts(anticipo_layers(), 20).to_vec() };
+    assert!(read().iter().all(|v| *v == 0.0), "zeros before any input");
+    for _ in 0..30 {
+        for b in b"abc" {
+            anticipo_observe(*b as u32);
+        }
+    }
+    let early_err: f32 = read()[10..].iter().map(|v| v * v).sum();
+    anticipo_observe(b'z' as u32); // surprising symbol
+    let l = read();
+    assert!(l[..10].iter().all(|a| a.abs() <= 1.0));
+    assert!(l[..10].iter().any(|a| a.abs() > 0.0));
+    let surprise_err: f32 = l[10..].iter().map(|v| v * v).sum();
+    assert!(surprise_err > early_err, "{surprise_err} vs {early_err}");
+    anticipo_reset();
+    assert!(read().iter().all(|v| *v == 0.0));
+}

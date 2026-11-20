@@ -19,6 +19,7 @@ pub fn symbol_of(byte: u8) -> usize {
 
 pub struct Session {
     model: Model,
+    last: Option<Step>,
 }
 
 impl Session {
@@ -40,6 +41,7 @@ impl Session {
         cfg.seed = seed;
         Session {
             model: Model::new(cfg),
+            last: None,
         }
     }
 
@@ -50,7 +52,9 @@ impl Session {
 
     /// Learn from one byte of input.
     pub fn observe(&mut self, byte: u8) -> Step {
-        self.model.observe(symbol_of(byte))
+        let step = self.model.observe(symbol_of(byte));
+        self.last = Some(step.clone());
+        step
     }
 
     /// Feed a whole string; returns the surprise (nats) of each byte.
@@ -65,7 +69,22 @@ impl Session {
 
     /// Learn from one symbol id; `None` if it is outside the alphabet.
     pub fn observe_symbol(&mut self, symbol: usize) -> Option<Step> {
-        (symbol < self.vocab()).then(|| self.model.observe(symbol))
+        if symbol >= self.vocab() {
+            return None;
+        }
+        let step = self.model.observe(symbol);
+        self.last = Some(step.clone());
+        Some(step)
+    }
+
+    /// The most recent observation (activity, errors), if any since reset.
+    pub fn last_step(&self) -> Option<&Step> {
+        self.last.as_ref()
+    }
+
+    /// Hidden layer width.
+    pub fn hidden(&self) -> usize {
+        self.model.config().hidden
     }
 
     /// The model's imagined continuation: `n` greedy (most likely) symbols.
@@ -89,5 +108,6 @@ impl Session {
     /// Forget everything: fresh weights from the same configuration.
     pub fn reset(&mut self) {
         self.model = Model::new(self.model.config().clone());
+        self.last = None;
     }
 }

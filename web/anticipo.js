@@ -23,6 +23,14 @@ export async function load(url = "pkg/anticipo.wasm") {
       return Array.from(new Uint32Array(x.memory.buffer, p, n));
     },
     vocab: () => x.anticipo_vocab(),
+    /** Hidden state after the last observation: {activity, errors} (copies). */
+    layers() {
+      const n = x.anticipo_hidden();
+      const p = x.anticipo_layers();
+      if (!p) return { activity: new Float32Array(0), errors: new Float32Array(0) };
+      const all = new Float32Array(x.memory.buffer, p, 2 * n);
+      return { activity: all.slice(0, n), errors: all.slice(n) };
+    },
     /** Next-symbol probabilities as a copied Float32Array. */
     predict() {
       const p = x.anticipo_predict();

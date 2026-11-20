@@ -60,6 +60,11 @@ pub struct Step {
     /// the hidden state had to move from its top-down prediction to explain
     /// the observation).
     pub hidden_error: f32,
+    /// Settled hidden activity `tanh(x1)`, one value per hidden unit.
+    pub hidden_activity: Vec<f32>,
+    /// Per-unit hidden prediction errors `x1 - mu1` (the vector whose norm is
+    /// `hidden_error`).
+    pub hidden_errors: Vec<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -205,6 +210,9 @@ impl Model {
             .sum::<f32>()
             .sqrt();
 
+        let hidden_activity = x1.iter().map(|v| v.tanh()).collect();
+        let hidden_errors = (0..hd).map(|h| x1[h] - mu1[h]).collect();
+
         self.history.remove(0);
         self.history.push(symbol);
         Step {
@@ -213,6 +221,8 @@ impl Model {
             correct,
             output_error,
             hidden_error,
+            hidden_activity,
+            hidden_errors,
         }
     }
 

@@ -13,6 +13,7 @@ struct State {
     probs: Vec<f32>,
     input: Vec<u8>,
     notes: Vec<u32>,
+    layers: Vec<f32>,
 }
 
 thread_local! {
@@ -56,6 +57,7 @@ fn install(session: Session) {
             session,
             input: Vec::new(),
             notes: Vec::new(),
+            layers: Vec::new(),
         })
     });
 }
@@ -159,4 +161,30 @@ pub extern "C" fn anticipo_reset() {
         st.session.reset();
         st.probs = st.session.predict();
     });
+}
+
+/// Hidden layer width (length of each layer buffer).
+#[no_mangle]
+pub extern "C" fn anticipo_hidden() -> u32 {
+    with_state(0, |st| st.session.hidden() as u32)
+}
+
+/// Pointer to `2 * anticipo_hidden()` f32s describing the last observation:
+/// first the hidden activity `tanh(x1)`, then the per-unit hidden prediction
+/// errors. All zeros before anything has been observed; null if
+/// uninitialised. Valid until the next call to this function.
+#[no_mangle]
+pub extern "C" fn anticipo_layers() -> *const f32 {
+    with_state(std::ptr::null(), |st| {
+        let h = st.session.hidden();
+        st.layers.clear();
+        match st.session.last_step() {
+            Some(step) => {
+                st.layers.extend_from_slice(&step.hidden_activity);
+                st.layers.extend_from_slice(&step.hidden_errors);
+            }
+            None => st.layers.resize(2 * h, 0.0),
+        }
+        st.layers.as_ptr()
+    })
 }
