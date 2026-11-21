@@ -264,8 +264,10 @@ impl Model {
             return Err("state has the wrong length".into());
         }
         let vals: Vec<f32> = bytes[16..]
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
             .collect();
         if vals.iter().any(|v| !v.is_finite()) {
             return Err("state contains non-finite weights".into());
