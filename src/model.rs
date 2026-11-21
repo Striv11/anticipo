@@ -77,6 +77,8 @@ pub struct Model {
     history: Vec<usize>,
 }
 
+const MAGIC: &[u8; 4] = b"ANT1";
+
 fn softmax(z: &[f32]) -> Vec<f32> {
     let m = z.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let mut e: Vec<f32> = z.iter().map(|v| (v - m).exp()).collect();
@@ -224,6 +226,54 @@ impl Model {
             hidden_activity,
             hidden_errors,
         }
+    }
+
+    /// Serialise the learned weights: magic `ANT1`, then `vocab`, `window`,
+    /// `hidden` as u32 LE, then `w1` and `w0` as f32 LE.
+    pub fn export_weights(&self) -> Vec<u8> {
+        let c = &self.cfg;
+        let mut out = Vec::with_capacity(16 + 4 * (self.w1.len() + self.w0.len()));
+        out.extend_from_slice(MAGIC);
+        for d in [c.vocab, c.window, c.hidden] {
+            out.extend_from_slice(&(d as u32).to_le_bytes());
+        }
+        for w in self.w1.iter().chain(&self.w0) {
+            out.extend_from_slice(&w.to_le_bytes());
+        }
+        out
+    }
+
+    /// Load weights written by [`Model::export_weights`]. The shape must
+    /// match this model's configuration; on error the model is unchanged.
+    /// The context window is cleared.
+    pub fn import_weights(&mut self, bytes: &[u8]) -> Result<(), String> {
+        let c = &self.cfg;
+        if bytes.len() < 16 || &bytes[..4] != MAGIC {
+            return Err("not an anticipo state".into());
+        }
+        let dim = |i: usize| u32::from_le_bytes(bytes[4 + 4 * i..8 + 4 * i].try_into().unwrap());
+        let (v, w, h) = (dim(0) as usize, dim(1) as usize, dim(2) as usize);
+        if (v, w, h) != (c.vocab, c.window, c.hidden) {
+            return Err(format!(
+                "shape mismatch: state is vocab {v}, window {w}, hidden {h}; model is vocab {}, window {}, hidden {}",
+                c.vocab, c.window, c.hidden
+            ));
+        }
+        let n1 = self.w1.len();
+        if bytes.len() != 16 + 4 * (n1 + self.w0.len()) {
+            return Err("state has the wrong length".into());
+        }
+        let vals: Vec<f32> = bytes[16..]
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .collect();
+        if vals.iter().any(|v| !v.is_finite()) {
+            return Err("state contains non-finite weights".into());
+        }
+        self.w1.copy_from_slice(&vals[..n1]);
+        self.w0.copy_from_slice(&vals[n1..]);
+        self.reset_context();
+        Ok(())
     }
 
     /// Clear the context window (weights are kept).

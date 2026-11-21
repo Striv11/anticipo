@@ -31,6 +31,7 @@ Predictive coding says cortex continually predicts its input and learns from the
 - `src/baseline.rs`: online order-k Markov model with additive smoothing, the reference for benchmarks. `Step` also reports `output_error` and `hidden_error` norms per observation.
 - Benchmark (`cargo test --test benchmark -- --nocapture`): on a first-order Markov source the PC model reaches ~1.13 bits/symbol vs 1.11 for the baseline (6000 symbols); at 30000 symbols the gap widens to ~7%, since constant-rate learning keeps fluctuating.
 - `src/session.rs` + `src/wasm.rs`: ASCII text session and a dependency-free C-ABI (`anticipo_init/init_melody/observe/observe_symbol/predict/continue/reset...`) exported to WASM; `web/anticipo.js` wraps it with typed arrays (no wasm-bindgen). The WASM binary is ~40 KB.
+- Model state: `Model::export_weights`/`import_weights` serialise the learned weights (magic `ANT1`, shape header, f32 LE); import validates shape, length and finiteness and leaves the model untouched on error. Exposed through FFI (`anticipo_state_*`) and `m.saveState()/m.loadState()`; the text page saves to localStorage.
 - Invariants: predictions always form a probability distribution; output is deterministic per seed and input.
 
 ## Setup

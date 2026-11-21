@@ -128,3 +128,56 @@ fn ffi_exposes_hidden_layers() {
     anticipo_reset();
     assert!(read().iter().all(|v| *v == 0.0));
 }
+
+#[test]
+fn state_round_trips_through_ffi() {
+    anticipo_init(3, 16, 0.1, 7);
+    for _ in 0..40 {
+        for b in b"abc" {
+            anticipo_observe(*b as u32);
+        }
+    }
+    let trained = probs();
+    let n = anticipo_state_export() as usize;
+    assert!(n > 16);
+    let saved = unsafe { std::slice::from_raw_parts(anticipo_state_ptr(), n) }.to_vec();
+
+    // A fresh model of the same shape behaves differently until loaded.
+    anticipo_init(3, 16, 0.1, 7);
+    assert_ne!(probs(), trained);
+    let dst = anticipo_state_buffer(n as u32);
+    unsafe { std::ptr::copy_nonoverlapping(saved.as_ptr(), dst, n) };
+    assert_eq!(anticipo_state_import(), 1);
+    // Context was cleared on import, so replay the same context as before.
+    for b in b"abc" {
+        anticipo_observe(*b as u32);
+    }
+    let after = probs();
+    assert!(after[b'a' as usize] > 0.9, "{}", after[b'a' as usize]);
+}
+
+#[test]
+fn bad_state_is_rejected_and_model_unchanged() {
+    let mut s = Session::new(3, 16, 0.1, 1);
+    s.observe_all(&b"abcabc".repeat(10));
+    let before = s.predict();
+    let good = s.export_state();
+
+    assert!(s.import_state(b"junk").is_err());
+    assert!(s.import_state(&good[..good.len() - 4]).is_err());
+    let mut nan = good.clone();
+    nan[20..24].copy_from_slice(&f32::NAN.to_le_bytes());
+    assert!(s.import_state(&nan).is_err());
+    let mut other = Session::new(2, 16, 0.1, 1);
+    let err = other.import_state(&good).unwrap_err();
+    assert!(err.contains("shape mismatch"), "{err}");
+    assert_eq!(s.predict(), before);
+
+    // Import clears the context, so compare against a context-cleared source.
+    s.reset_context();
+    let before = s.predict();
+    let mut twin = Session::new(3, 16, 0.1, 99);
+    twin.import_state(&good).unwrap();
+    assert_eq!(twin.predict(), before);
+    assert_eq!(twin.export_state(), good);
+}

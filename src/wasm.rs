@@ -14,6 +14,7 @@ struct State {
     input: Vec<u8>,
     notes: Vec<u32>,
     layers: Vec<f32>,
+    state: Vec<u8>,
 }
 
 thread_local! {
@@ -58,6 +59,7 @@ fn install(session: Session) {
             input: Vec::new(),
             notes: Vec::new(),
             layers: Vec::new(),
+            state: Vec::new(),
         })
     });
 }
@@ -186,5 +188,45 @@ pub extern "C" fn anticipo_layers() -> *const f32 {
             None => st.layers.resize(2 * h, 0.0),
         }
         st.layers.as_ptr()
+    })
+}
+
+/// Serialise the learned weights into an internal buffer and return its
+/// length in bytes (0 if uninitialised). Read it via `anticipo_state_ptr`.
+#[no_mangle]
+pub extern "C" fn anticipo_state_export() -> u32 {
+    with_state(0, |st| {
+        st.state = st.session.export_state();
+        st.state.len() as u32
+    })
+}
+
+/// Pointer to the bytes written by the last `anticipo_state_export`.
+#[no_mangle]
+pub extern "C" fn anticipo_state_ptr() -> *const u8 {
+    with_state(std::ptr::null(), |st| st.state.as_ptr())
+}
+
+/// Reserve `len` bytes of state scratch space (for JS to fill) and return
+/// its address; follow with `anticipo_state_import`.
+#[no_mangle]
+pub extern "C" fn anticipo_state_buffer(len: u32) -> *mut u8 {
+    with_state(std::ptr::null_mut(), |st| {
+        st.state.clear();
+        st.state.resize(len as usize, 0);
+        st.state.as_mut_ptr()
+    })
+}
+
+/// Load the state placed in the buffer from `anticipo_state_buffer`.
+/// Returns 1 on success, 0 if uninitialised or the state is invalid or
+/// does not match the current model shape (the model is then unchanged).
+#[no_mangle]
+pub extern "C" fn anticipo_state_import() -> u32 {
+    with_state(0, |st| {
+        let bytes = std::mem::take(&mut st.state);
+        let ok = st.session.import_state(&bytes).is_ok();
+        st.probs = st.session.predict();
+        ok as u32
     })
 }

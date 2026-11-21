@@ -9,7 +9,7 @@ Seven-day arc. Every milestone has acceptance criteria that can be checked by a 
 | 3 | WASM bindings + minimal UI | `wasm32-unknown-unknown` build in CI; JS API `observe/predict/reset` with typed arrays; page loads the bundle and shows next-symbol probability bars for typed text; Pages deploys | [x] |
 | 4 | Melody mode + audio | Piano-roll input (mouse/touch/keys), Web Audio playback of the model's predicted continuation; "surprise" trace chart updates live; keyboard shortcuts documented in-app | [x] (UI not browser-verified; core verified natively and in Node) |
 | 5 | Visualizing the hierarchy | Live view of hidden activity and error units per layer; learning-rate/window/hidden-size controls rebuild the model; presets (scale, nursery rhyme, English text) | [x] (text page; UI not browser-verified; melody page keeps its own presets) |
-| 6 | Product polish | Responsive layout verified at 375px and 1280px, light/dark, empty/loading/error states, landing section, save/load model state to localStorage; screenshots in README | [ ] |
+| 6 | Product polish | Responsive layout verified at 375px and 1280px, light/dark, empty/loading/error states, landing section, save/load model state to localStorage; screenshots in README | [ ] partial: weight export/import (core, FFI, tested) and text-page save/load + dark mode + narrow-screen CSS done; melody page polish, browser verification and screenshots remain |
 | 7 | Tests and budgets | Playwright e2e for core flows (type text, see predictions fall in surprise, melody playback toggles, reset); benchmark with budgets (<2 ms/observe at hidden=64, WASM <300 KB) enforced in CI; final docs | [ ] |
 
 ## Stretch

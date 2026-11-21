@@ -101,6 +101,19 @@ impl Session {
             .collect()
     }
 
+    /// Serialised weights (see [`Model::export_weights`]).
+    pub fn export_state(&self) -> Vec<u8> {
+        self.model.export_weights()
+    }
+
+    /// Restore weights; the session must have the same shape. Clears the
+    /// context and the last-step record.
+    pub fn import_state(&mut self, bytes: &[u8]) -> Result<(), String> {
+        self.model.import_weights(bytes)?;
+        self.last = None;
+        Ok(())
+    }
+
     pub fn reset_context(&mut self) {
         self.model.reset_context();
     }

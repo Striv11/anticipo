@@ -46,6 +46,19 @@ export async function load(url = "pkg/anticipo.wasm") {
     },
     /** Learn one character; returns its surprise in nats. */
     observeChar: (c) => x.anticipo_observe(c.charCodeAt(0)),
+    /** Learned weights as bytes (a copy), for saving. */
+    saveState() {
+      const n = x.anticipo_state_export();
+      const p = x.anticipo_state_ptr();
+      return new Uint8Array(x.memory.buffer, p, n).slice();
+    },
+    /** Restore weights from saveState(); the model shape must match. Returns success. */
+    loadState(bytes) {
+      const p = x.anticipo_state_buffer(bytes.length);
+      if (!p) return false;
+      new Uint8Array(x.memory.buffer, p, bytes.length).set(bytes);
+      return x.anticipo_state_import() === 1;
+    },
     resetContext: () => x.anticipo_reset_context(),
     reset: () => x.anticipo_reset(),
   };

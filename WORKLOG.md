@@ -37,3 +37,10 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Text page: window/hidden/learning-rate sliders (rebuild + replay text), three presets, and activity/error grids. Test checks layer buffer shape, bounds, zeros before input/after reset, and that a surprising symbol raises total hidden error. Node smoke-test of the built .wasm reads the buffer correctly (48 KB).
 - Not verified: the page in a real browser (still none available); the melody page was left as is.
 - Next (day 6): responsive layout at 375/1280, light/dark, localStorage save/load, screenshots.
+
+## 2026-11-21 (day 6, partial)
+- Added weight export/import: `Model::export_weights`/`import_weights` (validated: magic, shape, length, finite values; model unchanged on error), `Session::export_state/import_state`, FFI `anticipo_state_export/ptr/buffer/import`, JS `saveState/loadState`. Tests cover an FFI round trip, rejection of junk/truncated/NaN/mismatched-shape states, and a twin session reproducing predictions.
+- Text page: Save/Load buttons backed by localStorage (params, text, weights), dark-mode CSS, small-screen tweaks, error messages on failed save/load.
+- Learned: import clears the context window, so comparisons must use a context-cleared source (my first test got this wrong).
+- Not verified: the page in a browser or the wasm build (the wasm32 target and a browser are unavailable here); I only syntax-checked the JS with node. Layout at 375/1280 is untested.
+- Next: melody page dark mode/save-load, empty states, screenshots once a browser exists, then day 7 (Playwright, budgets).

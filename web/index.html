@@ -15,6 +15,16 @@
   #units i,#errs i{display:block;height:1.4rem;border-radius:2px;background:#ddd}
   #errs{display:grid;grid-template-columns:repeat(auto-fill,minmax(1.4rem,1fr));gap:2px}
   .legend{font-size:.85rem;color:#555}
+  :root{color-scheme:light dark}
+  @media (prefers-color-scheme:dark){
+    body{background:#181a1b;color:#e6e6e6} a{color:#8ab4f8}
+    #status,.legend{color:#aaa} #error{color:#ff8a8a}
+    #units i,#errs i{background:#333} textarea,button{background:#2a2d2f;color:inherit;border:1px solid #555}
+  }
+  @media (max-width:480px){
+    body{margin:1rem auto} h1{font-size:1.5rem}
+    button{padding:.5rem .8rem;margin:.1rem 0}
+  }
 </style></head>
 <body>
 <h1>anticipo</h1>
@@ -30,6 +40,8 @@
 <label for="t">Type (try repeating a phrase several times)</label>
 <textarea id="t" rows="4" disabled aria-describedby="status"></textarea>
 <p><button id="reset" disabled>Reset model</button>
+<button id="save" disabled>Save model</button>
+<button id="load" disabled>Load saved</button>
 <span id="status">Loading…</span></p>
 <p id="error" role="alert"></p>
 <h2>Next character</h2>
@@ -92,6 +104,27 @@ try {
   $("reset").addEventListener("click", () => {
     m.reset(); seen = ""; $("t").value = ""; render(null);
   });
+  const KEY = "anticipo:text:v1";
+  const b64 = (u) => btoa(String.fromCharCode(...u));
+  const unb64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+  const say = (msg) => { $("status").textContent = msg; };
+  const hasSaved = () => { try { return localStorage.getItem(KEY) !== null; } catch { return false; } };
+  $("save").addEventListener("click", () => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ params: params(), text: $("t").value, state: b64(m.saveState()) }));
+      $("load").disabled = false; say("Model saved in this browser.");
+    } catch (e) { say("Could not save: " + e.message); }
+  });
+  $("load").addEventListener("click", () => {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY));
+      const q = d.params;
+      $("cw").value = q.window; $("ch").value = q.hidden; $("cl").value = q.learningRate; showParams();
+      m.init(params());
+      if (!m.loadState(unb64(d.state))) throw new Error("saved state does not match");
+      $("t").value = d.text; seen = d.text; render(null); say("Saved model loaded.");
+    } catch (e) { rebuild(); render(null); say("Could not load saved model: " + e.message); }
+  });
   showParams();
   for (const id of ["cw", "ch", "cl"]) $(id).addEventListener("input", () => { showParams(); rebuild(); render(seen ? 0 : null); });
   for (const [name, text] of Object.entries(PRESETS)) {
@@ -99,7 +132,7 @@ try {
     b.addEventListener("click", () => { m.reset(); $("t").value = text; seen = ""; m.resetContext(); const s = m.observe(text); seen = text; render(s); });
     $("presets").append(b, " ");
   }
-  $("t").disabled = false; $("reset").disabled = false;
+  $("t").disabled = false; $("reset").disabled = false; $("save").disabled = false; $("load").disabled = !hasSaved();
   rebuild();
   render(null);
 } catch (err) {
