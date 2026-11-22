@@ -44,3 +44,9 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: import clears the context window, so comparisons must use a context-cleared source (my first test got this wrong).
 - Not verified: the page in a browser or the wasm build (the wasm32 target and a browser are unavailable here); I only syntax-checked the JS with node. Layout at 375/1280 is untested.
 - Next: melody page dark mode/save-load, empty states, screenshots once a browser exists, then day 7 (Playwright, budgets).
+
+## 2026-11-22 (day 7, partial)
+- Added `tests/perf_budget.rs`: observe latency at hidden=64, vocab 128, window 4. Measured ~0.9 ms release (budget 2 ms), ~6.5 ms in debug (50 ms allowance there). `check.sh` now runs it with `--release` and fails if the WASM exceeds 300 KB (the wasm step still skips locally without the target; CI has it).
+- Learned: the unoptimised test build is ~7x slower, so a budget only means something under `--release`; kept the debug allowance as a coarse regression guard.
+- Not done: Playwright e2e (no browser here), screenshots, melody page polish.
+- Next: Playwright e2e config + specs runnable in CI, melody-page polish, final docs.
